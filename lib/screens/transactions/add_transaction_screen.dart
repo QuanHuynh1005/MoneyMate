@@ -6,10 +6,12 @@ import '../../services/transaction_service.dart';
 
 class AddTransactionScreen extends StatefulWidget {
   final MoneyTransaction? transaction;
+  final String initialType;
 
   const AddTransactionScreen({
     super.key,
     this.transaction,
+    this.initialType = 'expense',
   });
 
   @override
@@ -59,25 +61,32 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       _type == 'income' ? _incomeCategories : _expenseCategories;
 
   @override
+  @override
   void initState() {
-    super.initState();
+  super.initState();
 
-    final transaction = widget.transaction;
+  final transaction = widget.transaction;
 
-    if (transaction != null) {
-      _titleController.text = transaction.title;
-      _amountController.text = transaction.amount.toStringAsFixed(0);
-      _noteController.text = transaction.note;
-      _type = transaction.type;
-      _selectedDate = transaction.date;
+  if (transaction != null) {
+    _titleController.text = transaction.title;
+    _amountController.text = transaction.amount.toStringAsFixed(0);
+    _noteController.text = transaction.note;
+    _type = transaction.type;
+    _selectedDate = transaction.date;
 
-      if (_categories.contains(transaction.category)) {
-        _category = transaction.category;
-      } else {
-        _category = 'Other';
-      }
+    if (_categories.contains(transaction.category)) {
+      _category = transaction.category;
+    } else {
+      _category = 'Other';
     }
+  } else {
+    _type = widget.initialType == 'income'
+        ? 'income'
+        : 'expense';
+
+    _category = _categories.first;
   }
+}
 
   @override
   void dispose() {

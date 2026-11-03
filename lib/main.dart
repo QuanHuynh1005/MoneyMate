@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'screens/transactions/transactions_screen.dart';
 import 'models/transaction_model.dart';
 import 'services/transaction_service.dart';
+import 'screens/transactions/add_transaction_screen.dart';
 
 import 'firebase_options.dart';
 
@@ -870,6 +871,7 @@ class DashboardScreen extends StatefulWidget {
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
+
 class _DashboardScreenState extends State<DashboardScreen> {
   int _selectedIndex = 0;
 
@@ -888,6 +890,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Future<void> _logout(BuildContext context) async {
     await FirebaseAuth.instance.signOut();
+  }
+
+  // Mở màn hình thêm giao dịch
+  Future<void> _openAddTransaction(String type) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AddTransactionScreen(
+          initialType: type,
+        ),
+      ),
+    );
+  }
+
+  // Mở màn hình thống kê (sẽ hoàn thiện sau)
+  void _openStatistics() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Statistics feature is coming soon!'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   String _formatMoney(double amount) {
@@ -931,7 +955,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
             child: Text(
-              '${_formatMoney(amount)}',
+              _formatMoney(amount),
               style: TextStyle(
                 color: color,
                 fontSize: 17,
@@ -946,9 +970,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildRecentTransaction(MoneyTransaction transaction) {
     final isIncome = transaction.isIncome;
-    final color = isIncome
-        ? Colors.green
-        : Colors.redAccent;
+    final color = isIncome ? Colors.green : Colors.redAccent;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -1137,14 +1159,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
               _QuickAction(
                 icon: Icons.add_circle_outline,
                 label: 'Add Income',
+                onTap: () => _openAddTransaction('income'),
               ),
               _QuickAction(
                 icon: Icons.remove_circle_outline,
                 label: 'Add Expense',
+                onTap: () => _openAddTransaction('expense'),
               ),
               _QuickAction(
                 icon: Icons.bar_chart,
                 label: 'Statistics',
+                onTap: _openStatistics,
               ),
             ],
           ),
@@ -1305,37 +1330,42 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
 
 
+
 // ==================== QUICK ACTION ====================
 
 class _QuickAction extends StatelessWidget {
   final IconData icon;
   final String label;
+  final VoidCallback onTap;
 
   const _QuickAction({
     required this.icon,
     required this.label,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        CircleAvatar(
-          radius: 27,
-          backgroundColor: const Color(0xFFFFEAF0),
-          child: Icon(
-            icon,
-            color: const Color(0xFFE88BAA),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Column(
+        children: [
+          CircleAvatar(
+            radius: 27,
+            backgroundColor: const Color(0xFFFFEAF0),
+            child: Icon(
+              icon,
+              color: const Color(0xFFE88BAA),
+            ),
           ),
-        ),
-
-        const SizedBox(height: 8),
-
-        Text(
-          label,
-          style: const TextStyle(fontSize: 11),
-        ),
-      ],
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 11),
+          ),
+        ],
+      ),
     );
   }
 }
