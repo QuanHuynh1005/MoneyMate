@@ -2,6 +2,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'screens/transactions/transactions_screen.dart';
+import 'models/transaction_model.dart';
+import 'services/transaction_service.dart';
 
 import 'firebase_options.dart';
 
@@ -858,229 +861,58 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
 // ==================== DASHBOARD ====================
 
-class DashboardScreen extends StatelessWidget {
+
+
+class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
+
+  @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  int _selectedIndex = 0;
+
+  final TransactionService _service = TransactionService();
+
+  late final Stream<List<MoneyTransaction>> _transactionsStream;
+
+  static const Color primaryPink = Color(0xFFE88BAA);
+  static const Color backgroundColor = Color(0xFFFFF8FA);
+
+  @override
+  void initState() {
+    super.initState();
+    _transactionsStream = _service.getTransactions();
+  }
 
   Future<void> _logout(BuildContext context) async {
     await FirebaseAuth.instance.signOut();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
-
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: const Color(0xFFFFF8FA),
-        title: const Text(
-          'MoneyMate',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: Color(0xFFE88BAA),
-          ),
-        ),
-        actions: [
-          IconButton(
-            tooltip: 'Logout',
-            icon: const Icon(Icons.logout),
-            onPressed: () => _logout(context),
-          ),
-        ],
-      ),
-
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 15),
-
-            Text(
-              'Hello, ${user?.displayName ?? 'User'}!',
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-
-            const SizedBox(height: 8),
-
-            const Text(
-              'Welcome to your personal finance manager.',
-              style: TextStyle(color: Colors.grey),
-            ),
-
-            const SizedBox(height: 30),
-
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(25),
-              decoration: BoxDecoration(
-                color: const Color(0xFFE88BAA),
-                borderRadius: BorderRadius.circular(22),
-              ),
-              child: const Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Total Balance',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 15,
-                    ),
-                  ),
-
-                  SizedBox(height: 12),
-
-                  Text(
-                    '12,500,000 đ',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 30,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-
-                  SizedBox(height: 10),
-
-                  Text(
-                    'Your financial overview',
-                    style: TextStyle(color: Colors.white70),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 25),
-
-            const Text(
-              'Overview',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-
-            const SizedBox(height: 15),
-
-            Row(
-              children: [
-                Expanded(
-                  child: _buildOverviewCard(
-                    'Income',
-                    '15,000,000 đ',
-                    Icons.trending_up,
-                    Colors.green,
-                  ),
-                ),
-
-                const SizedBox(width: 12),
-
-                Expanded(
-                  child: _buildOverviewCard(
-                    'Expenses',
-                    '2,500,000 đ',
-                    Icons.trending_down,
-                    Colors.redAccent,
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 30),
-
-            const Text(
-              'Quick Actions',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-
-            const SizedBox(height: 15),
-
-            const Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _QuickAction(
-                  icon: Icons.add_circle_outline,
-                  label: 'Add Income',
-                ),
-                _QuickAction(
-                  icon: Icons.remove_circle_outline,
-                  label: 'Add Expense',
-                ),
-                _QuickAction(
-                  icon: Icons.bar_chart,
-                  label: 'Statistics',
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 30),
-
-            const Text(
-              'Recent Transactions',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-
-            const SizedBox(height: 15),
-
-            _buildTransaction(
-              'Salary',
-              'Income',
-              '+ 15,000,000 đ',
-              Colors.green,
-              Icons.account_balance_wallet,
-            ),
-
-            _buildTransaction(
-              'Food & Drink',
-              'Expense',
-              '- 1,500,000 đ',
-              Colors.redAccent,
-              Icons.restaurant,
-            ),
-
-            _buildTransaction(
-              'Shopping',
-              'Expense',
-              '- 1,000,000 đ',
-              Colors.redAccent,
-              Icons.shopping_bag,
-            ),
-
-            const SizedBox(height: 30),
-
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () => _logout(context),
-                icon: const Icon(Icons.logout),
-                label: const Text('LOG OUT'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.redAccent,
-                  padding: const EdgeInsets.all(15),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
+  String _formatMoney(double amount) {
+    final value = amount.abs().toStringAsFixed(0);
+    final result = value.replaceAllMapped(
+      RegExp(r'\B(?=(\d{3})+(?!\d))'),
+      (match) => '.',
     );
+    return '$result đ';
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.day.toString().padLeft(2, '0')}/'
+        '${date.month.toString().padLeft(2, '0')}/'
+        '${date.year}';
   }
 
   Widget _buildOverviewCard(
     String title,
-    String amount,
+    double amount,
     IconData icon,
     Color color,
   ) {
     return Container(
-      padding: const EdgeInsets.all(17),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
@@ -1088,22 +920,23 @@ class DashboardScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: color, size: 28),
-
+          Icon(icon, color: color, size: 25),
           const SizedBox(height: 12),
-
           Text(
             title,
-            style: const TextStyle(color: Colors.grey),
+            style: TextStyle(color: Colors.grey.shade600),
           ),
-
-          const SizedBox(height: 8),
-
-          Text(
-            amount,
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
+          const SizedBox(height: 6),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              '${_formatMoney(amount)}',
+              style: TextStyle(
+                color: color,
+                fontSize: 17,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ],
@@ -1111,68 +944,366 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildTransaction(
-    String title,
-    String type,
-    String amount,
-    Color color,
-    IconData icon,
-  ) {
+  Widget _buildRecentTransaction(MoneyTransaction transaction) {
+    final isIncome = transaction.isIncome;
+    final color = isIncome
+        ? Colors.green
+        : Colors.redAccent;
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(15),
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
         children: [
           CircleAvatar(
-            backgroundColor: const Color(0xFFFFEEF3),
+            backgroundColor: color.withOpacity(0.12),
             child: Icon(
-              icon,
-              color: const Color(0xFFE88BAA),
+              isIncome ? Icons.south_west : Icons.north_east,
+              color: color,
             ),
           ),
-
           const SizedBox(width: 12),
-
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  title,
+                  transaction.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-
                 const SizedBox(height: 4),
-
                 Text(
-                  type,
-                  style: const TextStyle(
-                    color: Colors.grey,
+                  '${transaction.category} • ${_formatDate(transaction.date)}',
+                  style: TextStyle(
+                    color: Colors.grey.shade600,
                     fontSize: 12,
                   ),
                 ),
               ],
             ),
           ),
-
+          const SizedBox(width: 8),
           Text(
-            amount,
+            '${isIncome ? '+' : '-'}${_formatMoney(transaction.amount)}',
             style: TextStyle(
               color: color,
               fontWeight: FontWeight.bold,
+              fontSize: 13,
             ),
           ),
         ],
       ),
     );
   }
+
+  Widget _buildHomeContent(
+    List<MoneyTransaction> transactions,
+    User? user,
+  ) {
+    double income = 0;
+    double expense = 0;
+
+    for (final transaction in transactions) {
+      if (transaction.isIncome) {
+        income += transaction.amount;
+      } else {
+        expense += transaction.amount;
+      }
+    }
+
+    final balance = income - expense;
+    final recentTransactions = transactions.take(3).toList();
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 15),
+
+          Text(
+            'Hello, ${user?.displayName ?? 'User'}!',
+            style: const TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+
+          const SizedBox(height: 8),
+
+          const Text(
+            'Welcome to your personal finance manager.',
+            style: TextStyle(color: Colors.grey),
+          ),
+
+          const SizedBox(height: 30),
+
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(25),
+            decoration: BoxDecoration(
+              color: primaryPink,
+              borderRadius: BorderRadius.circular(22),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Total Balance',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 15,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    _formatMoney(balance),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 30,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  'Your financial overview',
+                  style: TextStyle(color: Colors.white70),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 25),
+
+          const Text(
+            'Overview',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+
+          const SizedBox(height: 15),
+
+          Row(
+            children: [
+              Expanded(
+                child: _buildOverviewCard(
+                  'Income',
+                  income,
+                  Icons.trending_up,
+                  Colors.green,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildOverviewCard(
+                  'Expenses',
+                  expense,
+                  Icons.trending_down,
+                  Colors.redAccent,
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 30),
+
+          const Text(
+            'Quick Actions',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+
+          const SizedBox(height: 15),
+
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _QuickAction(
+                icon: Icons.add_circle_outline,
+                label: 'Add Income',
+              ),
+              _QuickAction(
+                icon: Icons.remove_circle_outline,
+                label: 'Add Expense',
+              ),
+              _QuickAction(
+                icon: Icons.bar_chart,
+                label: 'Statistics',
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 30),
+
+          const Text(
+            'Recent Transactions',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+
+          const SizedBox(height: 15),
+
+          if (recentTransactions.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(25),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.receipt_long_outlined,
+                    size: 45,
+                    color: Colors.grey.shade400,
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'No transactions yet',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    'Your transactions will appear here.',
+                    style: TextStyle(color: Colors.grey.shade600),
+                  ),
+                ],
+              ),
+            )
+          else
+            ...recentTransactions.map(_buildRecentTransaction),
+
+          const SizedBox(height: 20),
+
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => _logout(context),
+              icon: const Icon(Icons.logout),
+              label: const Text('LOG OUT'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.redAccent,
+                padding: const EdgeInsets.all(15),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+
+    return Scaffold(
+      backgroundColor: backgroundColor,
+
+      appBar: _selectedIndex == 0
+          ? AppBar(
+              backgroundColor: backgroundColor,
+              title: const Text(
+                'MoneyMate',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: primaryPink,
+                ),
+              ),
+              actions: [
+                IconButton(
+                  tooltip: 'Logout',
+                  icon: const Icon(Icons.logout),
+                  onPressed: () => _logout(context),
+                ),
+              ],
+            )
+          : null,
+
+      body: _selectedIndex == 0
+          ? StreamBuilder<List<MoneyTransaction>>(
+              stream: _transactionsStream,
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text(
+                        'Unable to load dashboard data.\n${snapshot.error}',
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  );
+                }
+
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(
+                    child: CircularProgressIndicator(
+                      color: primaryPink,
+                    ),
+                  );
+                }
+
+                return _buildHomeContent(
+                  snapshot.data ?? [],
+                  user,
+                );
+              },
+            )
+          : const TransactionsScreen(),
+
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _selectedIndex,
+        onTap: (index) {
+          setState(() {
+            _selectedIndex = index;
+          });
+        },
+        selectedItemColor: primaryPink,
+        unselectedItemColor: Colors.grey,
+        backgroundColor: Colors.white,
+        type: BottomNavigationBarType.fixed,
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home_outlined),
+            activeIcon: Icon(Icons.home),
+            label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.receipt_long_outlined),
+            activeIcon: Icon(Icons.receipt_long),
+            label: 'Transactions',
+          ),
+        ],
+      ),
+    );
+  }
 }
+
+
+
 
 // ==================== QUICK ACTION ====================
 
