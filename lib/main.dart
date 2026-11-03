@@ -7,6 +7,7 @@ import 'models/transaction_model.dart';
 import 'services/transaction_service.dart';
 import 'screens/transactions/add_transaction_screen.dart';
 import 'screens/categories/categories_screen.dart';
+import 'screens/wallets/wallets_screen.dart';
 
 import 'firebase_options.dart';
 
@@ -1248,25 +1249,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Scaffold(
       backgroundColor: backgroundColor,
 
-      appBar: _selectedIndex != 1
-          ? AppBar(
-              backgroundColor: backgroundColor,
-              title: const Text(
-                'MoneyMate',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: primaryPink,
-                ),
-              ),
-              actions: [
-                IconButton(
-                  tooltip: 'Logout',
-                  icon: const Icon(Icons.logout),
-                  onPressed: () => _logout(context),
-                ),
-              ],
-            )
-          : null,
+      appBar: _selectedIndex == 0
+    ? AppBar(
+        backgroundColor: backgroundColor,
+        title: const Text(
+          'MoneyMate',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: primaryPink,
+          ),
+        ),
+        actions: [
+          IconButton(
+            tooltip: 'Logout',
+            icon: const Icon(Icons.logout),
+            onPressed: () => _logout(context),
+          ),
+        ],
+      )
+    : null,
 
       body: _selectedIndex == 0
     ? StreamBuilder<List<MoneyTransaction>>(
@@ -1300,7 +1301,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
       )
     : _selectedIndex == 1
         ? const TransactionsScreen()
-        : const CategoriesScreen(),
+        : _selectedIndex == 2
+            ? const CategoriesScreen()
+            : const WalletsScreen(),
 
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
@@ -1314,21 +1317,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
         backgroundColor: Colors.white,
         type: BottomNavigationBarType.fixed,
         items: const [
-        BottomNavigationBarItem(
-        icon: Icon(Icons.home_outlined),
-        activeIcon: Icon(Icons.home),
-        label: 'Home',
-        ),
-        BottomNavigationBarItem(
-        icon: Icon(Icons.receipt_long_outlined),
-        activeIcon: Icon(Icons.receipt_long),
-        label: 'Transactions',
-        ),
-        BottomNavigationBarItem(
-        icon: Icon(Icons.category_outlined),
-        activeIcon: Icon(Icons.category),
-        label: 'Categories',
-        ),
+  BottomNavigationBarItem(
+    icon: Icon(Icons.home_outlined),
+    activeIcon: Icon(Icons.home),
+    label: 'Home',
+  ),
+  BottomNavigationBarItem(
+    icon: Icon(Icons.receipt_long_outlined),
+    activeIcon: Icon(Icons.receipt_long),
+    label: 'Transactions',
+  ),
+  BottomNavigationBarItem(
+    icon: Icon(Icons.category_outlined),
+    activeIcon: Icon(Icons.category),
+    label: 'Categories',
+  ),
+  BottomNavigationBarItem(
+    icon: Icon(Icons.account_balance_wallet_outlined),
+    activeIcon: Icon(Icons.account_balance_wallet),
+    label: 'Wallets',
+  ),
 ],
       ),
     );

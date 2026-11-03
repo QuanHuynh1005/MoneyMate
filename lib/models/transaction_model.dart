@@ -1,4 +1,3 @@
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class MoneyTransaction {
@@ -9,6 +8,7 @@ class MoneyTransaction {
   final String category;
   final String note;
   final DateTime date;
+  final String walletId;
   final DateTime? createdAt;
 
   const MoneyTransaction({
@@ -19,6 +19,7 @@ class MoneyTransaction {
     required this.category,
     this.note = '',
     required this.date,
+    this.walletId = '',
     this.createdAt,
   });
 
@@ -32,6 +33,7 @@ class MoneyTransaction {
       'category': category,
       'note': note,
       'date': Timestamp.fromDate(date),
+      'walletId': walletId,
       'createdAt': FieldValue.serverTimestamp(),
     };
   }
@@ -43,11 +45,12 @@ class MoneyTransaction {
     return MoneyTransaction(
       id: id,
       title: map['title'] ?? '',
-      amount: (map['amount'] as num).toDouble(),
+      amount: (map['amount'] as num?)?.toDouble() ?? 0,
       type: map['type'] ?? 'expense',
       category: map['category'] ?? 'Other',
       note: map['note'] ?? '',
       date: (map['date'] as Timestamp).toDate(),
+      walletId: map['walletId'] ?? '',
       createdAt: (map['createdAt'] as Timestamp?)?.toDate(),
     );
   }
