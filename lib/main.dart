@@ -6,6 +6,7 @@ import 'screens/transactions/transactions_screen.dart';
 import 'models/transaction_model.dart';
 import 'services/transaction_service.dart';
 import 'screens/transactions/add_transaction_screen.dart';
+import 'screens/categories/categories_screen.dart';
 
 import 'firebase_options.dart';
 
@@ -1247,7 +1248,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Scaffold(
       backgroundColor: backgroundColor,
 
-      appBar: _selectedIndex == 0
+      appBar: _selectedIndex != 1
           ? AppBar(
               backgroundColor: backgroundColor,
               title: const Text(
@@ -1268,36 +1269,38 @@ class _DashboardScreenState extends State<DashboardScreen> {
           : null,
 
       body: _selectedIndex == 0
-          ? StreamBuilder<List<MoneyTransaction>>(
-              stream: _transactionsStream,
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Text(
-                        'Unable to load dashboard data.\n${snapshot.error}',
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  );
-                }
+    ? StreamBuilder<List<MoneyTransaction>>(
+        stream: _transactionsStream,
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(
+                  'Unable to load dashboard data.\n${snapshot.error}',
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            );
+          }
 
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(
-                    child: CircularProgressIndicator(
-                      color: primaryPink,
-                    ),
-                  );
-                }
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(
+              child: CircularProgressIndicator(
+                color: primaryPink,
+              ),
+            );
+          }
 
-                return _buildHomeContent(
-                  snapshot.data ?? [],
-                  user,
-                );
-              },
-            )
-          : const TransactionsScreen(),
+          return _buildHomeContent(
+            snapshot.data ?? [],
+            user,
+          );
+        },
+      )
+    : _selectedIndex == 1
+        ? const TransactionsScreen()
+        : const CategoriesScreen(),
 
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
@@ -1311,17 +1314,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
         backgroundColor: Colors.white,
         type: BottomNavigationBarType.fixed,
         items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.receipt_long_outlined),
-            activeIcon: Icon(Icons.receipt_long),
-            label: 'Transactions',
-          ),
-        ],
+        BottomNavigationBarItem(
+        icon: Icon(Icons.home_outlined),
+        activeIcon: Icon(Icons.home),
+        label: 'Home',
+        ),
+        BottomNavigationBarItem(
+        icon: Icon(Icons.receipt_long_outlined),
+        activeIcon: Icon(Icons.receipt_long),
+        label: 'Transactions',
+        ),
+        BottomNavigationBarItem(
+        icon: Icon(Icons.category_outlined),
+        activeIcon: Icon(Icons.category),
+        label: 'Categories',
+        ),
+],
       ),
     );
   }

@@ -1,8 +1,9 @@
-
 import 'package:flutter/material.dart';
 
 import '../../models/transaction_model.dart';
+import '../../models/category_model.dart';
 import '../../services/transaction_service.dart';
+import '../../services/category_service.dart';
 
 class AddTransactionScreen extends StatefulWidget {
   final MoneyTransaction? transaction;
@@ -21,7 +22,11 @@ class AddTransactionScreen extends StatefulWidget {
 
 class _AddTransactionScreenState extends State<AddTransactionScreen> {
   final _formKey = GlobalKey<FormState>();
+
   final TransactionService _service = TransactionService();
+  final CategoryService _categoryService = CategoryService();
+
+  late final Stream<List<MoneyCategory>> _categoriesStream;
 
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _amountController = TextEditingController();
@@ -30,63 +35,32 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   static const Color primaryPink = Color(0xFFE88BAA);
 
   String _type = 'expense';
-  String _category = 'Food';
+  String _category = '';
   DateTime _selectedDate = DateTime.now();
 
   bool _isSaving = false;
 
-  final List<String> _expenseCategories = [
-    'Food',
-    'Transport',
-    'Shopping',
-    'Entertainment',
-    'Health',
-    'Education',
-    'Bills',
-    'Other',
-  ];
-
-  final List<String> _incomeCategories = [
-    'Salary',
-    'Bonus',
-    'Investment',
-    'Business',
-    'Gift',
-    'Other',
-  ];
-
   bool get _isEditing => widget.transaction != null;
 
-  List<String> get _categories =>
-      _type == 'income' ? _incomeCategories : _expenseCategories;
-
-  @override
   @override
   void initState() {
-  super.initState();
+    super.initState();
 
-  final transaction = widget.transaction;
+    _categoriesStream = _categoryService.getCategories();
 
-  if (transaction != null) {
-    _titleController.text = transaction.title;
-    _amountController.text = transaction.amount.toStringAsFixed(0);
-    _noteController.text = transaction.note;
-    _type = transaction.type;
-    _selectedDate = transaction.date;
+    final transaction = widget.transaction;
 
-    if (_categories.contains(transaction.category)) {
+    if (transaction != null) {
+      _titleController.text = transaction.title;
+      _amountController.text = transaction.amount.toStringAsFixed(0);
+      _noteController.text = transaction.note;
+      _type = transaction.type;
       _category = transaction.category;
+      _selectedDate = transaction.date;
     } else {
-      _category = 'Other';
+      _type = widget.initialType == 'income' ? 'income' : 'expense';
     }
-  } else {
-    _type = widget.initialType == 'income'
-        ? 'income'
-        : 'expense';
-
-    _category = _categories.first;
   }
-}
 
   @override
   void dispose() {
@@ -127,8 +101,17 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     }
   }
 
-  Future<void> _saveTransaction() async {
+  Future<void> _saveTransaction(String selectedCategory) async {
     if (!_formKey.currentState!.validate()) return;
+
+    if (selectedCategory.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please create a category before saving.'),
+        ),
+      );
+      return;
+    }
 
     final amount = double.tryParse(
       _amountController.text.trim().replaceAll(',', ''),
@@ -137,7 +120,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     if (amount == null || amount <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please enter a valid amount greater than zero.'),
+          content: Text(
+            'Please enter a valid amount greater than zero.',
+          ),
         ),
       );
       return;
@@ -150,7 +135,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       title: _titleController.text.trim(),
       amount: amount,
       type: _type,
-      category: _category,
+      category: selectedCategory,
       note: _noteController.text.trim(),
       date: _selectedDate,
     );
@@ -179,7 +164,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Unable to save transaction: $e')),
+        SnackBar(
+          content: Text('Unable to save transaction: $e'),
+        ),
       );
     } finally {
       if (mounted) {
@@ -204,7 +191,10 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: primaryPink, width: 1.5),
+        borderSide: const BorderSide(
+          color: primaryPink,
+          width: 1.5,
+        ),
       ),
     );
   }
@@ -222,167 +212,245 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         backgroundColor: const Color(0xFFFFF8FA),
         elevation: 0,
       ),
-      body: SafeArea(
-        child: Form(
-          key: _formKey,
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 30),
-            children: [
-              const Text(
-                'Transaction Type',
-                style: TextStyle(fontWeight: FontWeight.w600),
+      body: StreamBuilder<List<MoneyCategory>>(
+        stream: _categoriesStream,
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(
+                  'Unable to load categories.\n${snapshot.error}',
+                  textAlign: TextAlign.center,
+                ),
               ),
-              const SizedBox(height: 12),
-              Row(
+            );
+          }
+
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(
+              child: CircularProgressIndicator(
+                color: primaryPink,
+              ),
+            );
+          }
+
+          final allCategories = snapshot.data ?? [];
+
+          final categories = allCategories
+              .where((category) => category.type == _type)
+              .toList();
+
+          final categoryNames = categories
+              .map((category) => category.name)
+              .toList();
+
+          // Keep the old category if it still exists.
+          // Otherwise, select the first available category.
+          final selectedCategory = categoryNames.contains(_category)
+              ? _category
+              : (categoryNames.isNotEmpty ? categoryNames.first : '');
+
+          return SafeArea(
+            child: Form(
+              key: _formKey,
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 30),
                 children: [
-                  Expanded(
-                    child: _typeButton(
-                      'expense',
-                      'Expense',
-                      Icons.arrow_upward,
-                      const Color(0xFFE66D75),
+                  const Text(
+                    'Transaction Type',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 12),
+
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _typeButton(
+                          'expense',
+                          'Expense',
+                          Icons.arrow_upward,
+                          const Color(0xFFE66D75),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _typeButton(
+                          'income',
+                          'Income',
+                          Icons.arrow_downward,
+                          const Color(0xFF35A879),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  const Text(
+                    'Transaction Details',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 12),
+
+                  TextFormField(
+                    controller: _titleController,
+                    textCapitalization: TextCapitalization.sentences,
+                    decoration: _inputDecoration(
+                      'Transaction title',
+                      Icons.edit_outlined,
+                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Please enter a transaction title.';
+                      }
+                      return null;
+                    },
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  TextFormField(
+                    controller: _amountController,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: _inputDecoration(
+                      'Amount (VND)',
+                      Icons.payments_outlined,
+                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Please enter an amount.';
+                      }
+
+                      final amount = double.tryParse(
+                        value.trim().replaceAll(',', ''),
+                      );
+
+                      if (amount == null || amount <= 0) {
+                        return 'Amount must be greater than zero.';
+                      }
+
+                      return null;
+                    },
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  DropdownButtonFormField<String>(
+                    value: selectedCategory.isEmpty
+                        ? null
+                        : selectedCategory,
+                    isExpanded: true,
+                    decoration: _inputDecoration(
+                      'Category',
+                      Icons.category_outlined,
+                    ),
+                    hint: Text(
+                      categories.isEmpty
+                          ? 'No categories available'
+                          : 'Select category',
+                    ),
+                    items: categories.map((category) {
+                      return DropdownMenuItem<String>(
+                        value: category.name,
+                        child: Text(category.name),
+                      );
+                    }).toList(),
+                    onChanged: categories.isEmpty
+                        ? null
+                        : (value) {
+                            if (value != null) {
+                              setState(() {
+                                _category = value;
+                              });
+                            }
+                          },
+                  ),
+
+                  if (categories.isEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'No ${_type == 'income' ? 'income' : 'expense'} '
+                      'categories found. Please add one in the '
+                      'Categories tab first.',
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+
+                  const SizedBox(height: 16),
+
+                  InkWell(
+                    onTap: _selectDate,
+                    borderRadius: BorderRadius.circular(14),
+                    child: InputDecorator(
+                      decoration: _inputDecoration(
+                        'Transaction date',
+                        Icons.calendar_today_outlined,
+                      ),
+                      child: Text(_formatDate(_selectedDate)),
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _typeButton(
-                      'income',
-                      'Income',
-                      Icons.arrow_downward,
-                      const Color(0xFF35A879),
+
+                  const SizedBox(height: 16),
+
+                  TextFormField(
+                    controller: _noteController,
+                    maxLines: 3,
+                    textCapitalization: TextCapitalization.sentences,
+                    decoration: _inputDecoration(
+                      'Note (optional)',
+                      Icons.notes_outlined,
+                    ),
+                  ),
+
+                  const SizedBox(height: 30),
+
+                  SizedBox(
+                    height: 54,
+                    child: ElevatedButton(
+                      onPressed: _isSaving || categories.isEmpty
+                          ? null
+                          : () => _saveTransaction(selectedCategory),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: primaryPink,
+                        foregroundColor: Colors.white,
+                        disabledBackgroundColor:
+                            primaryPink.withOpacity(0.5),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: _isSaving
+                          ? const SizedBox(
+                              height: 22,
+                              width: 22,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : Text(
+                              _isEditing
+                                  ? 'Save Changes'
+                                  : 'Add Transaction',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 24),
-
-              const Text(
-                'Transaction Details',
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 12),
-
-              TextFormField(
-                controller: _titleController,
-                textCapitalization: TextCapitalization.sentences,
-                decoration: _inputDecoration(
-                  'Transaction title',
-                  Icons.edit_outlined,
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Please enter a transaction title.';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-
-              TextFormField(
-                controller: _amountController,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                decoration: _inputDecoration(
-                  'Amount (VND)',
-                  Icons.payments_outlined,
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Please enter an amount.';
-                  }
-
-                  final amount = double.tryParse(
-                    value.trim().replaceAll(',', ''),
-                  );
-
-                  if (amount == null || amount <= 0) {
-                    return 'Amount must be greater than zero.';
-                  }
-
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-
-              DropdownButtonFormField<String>(
-                value: _category,
-                decoration: _inputDecoration(
-                  'Category',
-                  Icons.category_outlined,
-                ),
-                items: _categories.map((category) {
-                  return DropdownMenuItem(
-                    value: category,
-                    child: Text(category),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  if (value != null) {
-                    setState(() => _category = value);
-                  }
-                },
-              ),
-              const SizedBox(height: 16),
-
-              InkWell(
-                onTap: _selectDate,
-                borderRadius: BorderRadius.circular(14),
-                child: InputDecorator(
-                  decoration: _inputDecoration(
-                    'Transaction date',
-                    Icons.calendar_today_outlined,
-                  ),
-                  child: Text(_formatDate(_selectedDate)),
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              TextFormField(
-                controller: _noteController,
-                maxLines: 3,
-                textCapitalization: TextCapitalization.sentences,
-                decoration: _inputDecoration(
-                  'Note (optional)',
-                  Icons.notes_outlined,
-                ),
-              ),
-              const SizedBox(height: 30),
-
-              SizedBox(
-                height: 54,
-                child: ElevatedButton(
-                  onPressed: _isSaving ? null : _saveTransaction,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: primaryPink,
-                    foregroundColor: Colors.white,
-                    disabledBackgroundColor: primaryPink.withOpacity(0.5),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    elevation: 0,
-                  ),
-                  child: _isSaving
-                      ? const SizedBox(
-                          height: 22,
-                          width: 22,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2,
-                          ),
-                        )
-                      : Text(
-                          _isEditing ? 'Save Changes' : 'Add Transaction',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                ),
-              ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -397,9 +465,10 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
 
     return InkWell(
       onTap: () {
+        if (_type == value) return;
+
         setState(() {
           _type = value;
-          _category = _categories.first;
         });
       },
       borderRadius: BorderRadius.circular(14),
